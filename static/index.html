@@ -1,0 +1,264 @@
+<!doctype html>
+<html>
+<style>
+body {
+   background:#333;
+   color: #222;
+   font-family: arial,helvetica,sans-serif;
+   font-size: 11pt;
+   line-height: 140%;
+}
+
+h1 {
+   color: #111;
+   font-family: Helvetica, Arial, sans-serif;
+}
+
+a:link, a:visited, a:active, a:hover {
+  color: #004B91;
+  text-decoration: none;
+}
+
+#player {
+  border: 4px solid #888;
+  border-radius: 10px;
+  margin:0 auto;
+  margin-top: 50px;
+  padding: 20px;
+  width:460px;
+  background: white;
+  display:block;
+  opacity:0.95;
+}
+
+#drop {
+  background-image:url('http://cf.scdn.co/i/press/logotype/spotify-logo-96x96-no-tagline.png');
+  background-position:center center;
+  background-repeat:no-repeat;
+  border:3px dashed #4a4;
+  height:200px;
+  margin-top:10px;
+  margin-bottom:10px;
+  width:400px;
+}
+
+#drop_msg {
+  font-size: 11pt;
+  margin-top:160px;
+  text-align:center;
+  width:100%;
+}
+
+#controls {
+  margin-top: 15px;
+  text-align:center;
+}
+
+#help {
+  margin-top: 25px;
+  margin-bottom: 10px;
+  font-family: arial, helvetica, sans-serif;
+  font-size: x-small;
+  line-height: 110%;
+}
+
+#copyright {
+  color: #888;
+  margin-top: 30px;
+  font-family: arial, helvetica, sans-serif;
+  font-size: x-small;
+  line-height: 110%;
+}
+</style>
+<head></head>
+<body>
+
+<div id="player" align="center">
+  <h1>The Social Jukebox</h1>
+  <p id="help">
+    Songs will be randomly picked from the queue. Anybody can add more songs,
+    if you drop more than 5 songs we'll random select this many from your
+    list. Skipping songs breaks the chain and affects everybody else so think
+    twice before doing so.
+  </p>
+  <div id="drop" align="center">
+    <p id="drop_msg">
+      Drag and drop songs from Spotify here.
+    </p>
+  </div>
+  <div id="controls">
+    <a href="javascript:song_play();">Play</a>&nbsp;|&nbsp;
+    <a href="javascript:song_stop();">Stop</a>&nbsp;|&nbsp;
+    <a href="javascript:song_skip();">Skip</a>&nbsp;|&nbsp;
+    <a id="song_uri" href="#" target="_blank">Share</a>
+    <br/>
+    <span id="song_name">Loading...</span>
+    <br/>
+    (<span id="song_count">0</span> queued - <span id="song_in_row">0</span> played in a row)
+  </div>
+  <div id="copyright" align="center">
+    <a href="http://www.zafar.se/social-jukebox.html">Social Jukebox</a> by <a href="https://twitter.com/#!/bkzafar">@bkzafar</a>.
+    All logos, trademarks and artwork are copyright their respective owners.
+    Powered by Spotify (libspotify), this not endorsed, certified or otherwise approved in any way by Spotify.
+    Spotify is the registered trade mark of the Spotify Group. Be nice to each other!
+    <br/><br/>
+    Chrome 13+, Firefox 4+
+  </div>
+</div>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+<style>
+  [draggable=true] {
+    -khtml-user-drag: element;
+    -webkit-user-drag: element;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+  }
+</style>
+<script>
+  jQuery.event.props.push('dataTransfer');
+
+  $("#drop").bind('dragover dragenter',  function(e) {
+    if (e.preventDefault)
+      e.preventDefault();                 // FF/Webkit
+    e.dataTransfer.dropEffect = 'copy';
+    return false;                         // IE
+  });
+
+  $("#drop").bind('drop', function (e) {
+    if (e.stopPropagation)
+      e.stopPropagation();
+    if (e.preventDefault)
+      e.preventDefault();
+    song_queue_dropped(e.dataTransfer.getData('Text'));
+    return false;
+  });
+</script>
+<script type="text/javascript">
+  var skip_msg = ["Relax!", "Too soon!", "Give it a chance!", "Open minded?", "Seriously?"];
+  var success_msg = ["Thanks!", "Success!", "Yes!", "Good choice!", "Fine taste!", "Really?"];
+  var error_msg = ["Sorry, try again!", "Error, try again!", "Failure, try again!", "Hmm, try again!"];
+
+  if (!Array.prototype.indexOf) {
+    Array.prototype.indexOf = function(elt /*, from*/) {
+      var len = this.length >>> 0;
+      var from = Number(arguments[1]) || 0;
+      from = (from < 0)
+           ? Math.ceil(from)
+           : Math.floor(from);
+      if (from < 0)
+        from += len;
+      for (; from < len; from++)
+      {
+        if (from in this &&
+            this[from] === elt)
+          return from;
+      }
+      return -1;
+    };
+  }
+
+  function S4() {
+     return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+  }
+  function UUID() {
+     return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4());
+  }
+
+  var client_uuid = UUID();
+  var client_playing = false;
+
+  function audio_sync(wait_ms) {
+    setTimeout(function() {
+      sound_reset(client_playing);
+    }, wait_ms);
+  }
+
+  function song_play() {
+    client_playing = true;
+    audio_sync(10);
+  }
+
+  function song_stop() {
+    client_playing = false;
+    audio_sync(10);
+  }
+
+  function song_skip() {
+    client_playing = true;
+    $.getJSON("/skip?jsonp_callback=?",
+      {uuid : client_uuid},
+      function(result) {
+        if (result !== "ok") {
+          skip_msg.push(skip_msg.shift());
+          $("#drop_msg").text(skip_msg[0]);
+        }
+      });
+  }
+
+  function song_queue_dropped(song_urls) {
+    if (song_urls) {
+      $.getJSON("/queue?jsonp_callback=?",
+        {uuid : client_uuid, urls : escape(song_urls)},
+        function(result) {
+          $("#drop_msg").stop().clearQueue();
+          if (result === "ok") {
+             success_msg.push(success_msg.shift());
+             $("#drop_msg").text(success_msg[0]);
+          } else {
+             error_msg.push(error_msg.shift());
+             $("#drop_msg").text(error_msg[0]);
+          }
+        });
+    }
+  }
+
+  function poll_server() {
+    $.getJSON("/poll?jsonp_callback=?",
+      {uuid : client_uuid},
+      function(result) {
+        if (result[0].indexOf("sync") != -1) {
+          audio_sync(1500);
+        }
+        $("#song_name").text(result[1]);
+        $("#song_uri").attr("href", result[2]);
+        $("#song_count").text(result[3]);
+        $("#song_in_row").text(result[4]);
+        $("body").css("background", "white url('/cover?filename=" + result[5] + "') center center repeat");
+      });
+  }
+
+  setInterval(poll_server, 250);
+</script>
+<script type="text/javascript" src="sm2/soundmanager2-jsmin.js"></script>
+<script type="text/javascript">
+  var sound = null;
+
+  soundManager.url = 'sm2/';
+  soundManager.flashVersion = 9;
+  soundManager.debugMode = false;
+
+  function sound_reset(autoplay) {
+    if (sound !== null) {
+      sound.unload();
+      sound.destruct();
+    }
+    sound = soundManager.createSound({
+      id: 'aSound',
+      url: 'http://bkzserver.dyndns.org:8001/stream.mp3',
+      bufferTime: 5,
+      volume: 75
+    });
+    if (autoplay)
+      sound.play();
+  }
+
+  soundManager.onready(function(){
+    sound_reset(false);
+  });
+  soundManager.ontimeout(function(){
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+Social Jukebox is a simple web application which implement a streaming radio
+station powered by Spotify. Music from Spotify is encoded on the fly to MP3 via
+FFmpeg and then streamed to multiple clients.
+
+The clients share control over the jukebox, dragging and dropping songs from
+Spotify to populate the playlist. Simple tricks like rate-limiting and timeouts
+for various actions are used to make sure clients are nice to each other.
+
+Screenshot: http://www.zafar.se/jukebox.jpg
+
+The system is composed of three parts, the jukebox backend which listenes for
+HTTP clients on port 8000 and uses a Python extension to wrap libspotify and
+output raw PCM data to stdout. The second component is the streaming server
+which reads raw PCM data from stdin, encodes to MP3 and streams audio to
+clients over HTTP. Finally we have a simple UI which uses a Flash
+(Soundmanager2) for streaming audio and communicates with the backend over
+JSONP.
+
+After installation run the following and visit http://127.0.0.1:8000
+
+  $ python jukebox.py -u <username> -p <password> | python mp3stream.py
+
+Installation:
+
+Download and save your Spotify developer application key as "spotify.key" in
+the project folder (i.e. in the same directory as jukebox.py).
+
+Make sure you have FFmpeg installed on your system with LAME support baked in
+(i.e. libmp3lame, Debian users, see note at the end). Now build the libspotify
+wrapper (Python extension) using instructions for your platform:
+
+OSX
+
+  1) Download and install libspotify and SDL frameworks to /Library/Frameworks
+
+  2) python setup.py install --install-lib=.
+
+  3) python jukebox.py -u <username> -p <password> | python mp3stream.py
+
+Linux
+
+  1) Download install libspotify (make install) and SDL (libsdl-dev)
+
+  2) Install python-dev package if not installed.
+
+  3) python setup.py install --install-lib=.
+
+  4) python jukebox.py -u <username> -p <password> | python mp3stream.py
+
+Windows
+
+  1) Download and install libspotify and SDL, make sure libspotify/api.h,
+     SDL/SDL.h, libspotify.lib and SDL.lib are on the global include/lib
+     path. Copy libspotify.dll and SDL.dll to the project folder.
+
+  2) Make sure Python 2.7+ libs and headers (Python.h) are on the global
+     include/lib path.
+
+  3) Create an empty DLL project, add libspotify_wrapper.cpp and make a release
+     build. Rename libspotify_wrapper.dll to libspotify_wrapper.pyd and move it
+     to the project folder.
+
+  4) python jukebox.py -u <username> -p <password> | python mp3stream.py
+
+Debian FFmpeg notes:
+
+Due to legal issues the default Debian FFmpeg package is not built with LAME
+(i.e. no MP3 support). Reinstall FFmpeg using these instructions:
+
+  1) http://wiki.debian.org/MultimediaCodecs
+
+  2) aptitude install ffmpeg lame

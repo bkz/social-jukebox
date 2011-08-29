@@ -1,0 +1,7 @@
+.DS_Store
+build
+libspotify_wrapper-*.egg-info
+libspotify_wrapper.so
+spotify.key
+static/cache/*.jpg
+temp
