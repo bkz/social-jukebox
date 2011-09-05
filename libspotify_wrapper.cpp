@@ -912,7 +912,7 @@ initlibspotify_wrapper(void)
 /*
 int main(int argc, char **argv)
 {
-    spotify_start("bkz", "hendrix");
+    spotify_start("USERNAME", "PASSWORD");
 
     return 0;
 }
